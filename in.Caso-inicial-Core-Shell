@@ -1,0 +1,81 @@
+#Definimos condiciones de trabajo (unidades, parametros para cada atomo, dimensiones y condiciones de borde)
+units           metal
+atom_style      atomic
+dimension       3
+boundary        p p p
+
+#Definimos caja de trabajo
+region box block -160 160 -160 160 -160 160 units box
+create_box 2 box
+
+# Definimos masas de trabajo
+mass 2 196.97
+mass 1 107.87
+
+# Definimos potencial de trabajo
+pair_style eam/alloy
+pair_coeff * * CuAgAu.lammps.eam Ag Au
+
+# Definimos esfera
+variable r_Au equal 152
+variable r_Ag equal 120
+
+region esfera sphere 0.0 0.0 0.0 ${r_Au} units box
+region esferaAg sphere 0.0 0.0 0.0 ${r_Ag} units box
+
+# Definimos estructura cristalina del sistema 
+lattice fcc 4.08485 orient z 1 1 1 orient x -1 1 0 orient y -1 -1 2 ## (111) along z axis
+create_atoms 2 region esfera ## Creamos atomos de Au siguiendo estructura cristalina defina en toda la caja
+set region esferaAg type 1 ## Selecciono atomos en la esfera como atomos de Au
+
+group Au type 2
+group Ag type 1
+
+write_data AgAu-sphere-unrelax.data
+write_restart AgAu-sphere-unrelax.restart
+
+# Relajamos muestra generada
+
+thermo 100
+thermo_style custom step temp pe ke etotal press vol
+thermo_modify norm yes
+
+compute 1 all pe/atom
+compute 2 all ke/atom
+compute 3 all stress/atom NULL pair
+
+fix 1 Au temp/rescale 5 300.0 1000.0 1.0 1.0 
+fix 2 Ag temp/rescale 5 300.0 1000.0 1.0 1.0
+fix 5 all nve 
+run 100000
+unfix 1
+unfix 2
+unfix 5
+
+fix 1 Au temp/rescale 5 1000.0 1000.0 1.0 1.0
+fix 2 Ag temp/rescale 5 1000.0 1000.0 1.0 1.0
+fix 5 all nve
+run 100000
+unfix 1
+unfix 2
+unfix 5
+
+fix 1 Au temp/rescale 5 1000.0 300.0 1.0 1.0
+fix 2 Ag temp/rescale 5 1000.0 300.0 1.0 1.0
+fix 5 all nve
+run 100000
+unfix 1
+unfix 2
+unfix 5
+
+fix 1 Au temp/rescale 5 300.0 300.0 1.0 1.0
+fix 2 Ag temp/rescale 5 300.0 300.0 1.0 1.0
+fix 5 all nve
+run 100000
+unfix 1
+unfix 2
+unfix 5
+
+
+write_data AgAu-sphere-relax.data
+write_restart AgAu-sphere-relax.restart
