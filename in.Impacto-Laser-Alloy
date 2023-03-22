@@ -1,0 +1,106 @@
+# Relaxation of spheres to elaborate hollow nanoparticles
+units		metal
+
+#newton		on
+
+atom_style	atomic
+
+dimension	3
+
+boundary	s s s
+
+#lattice fcc 4.0896
+
+#variable radioAu equal 120.0
+#variable radioAu2 equal ${radioAu}-2.0
+#variable radioAg equal 120.0
+#variable radioAg2 equal ${radioAg}-2.0
+
+
+#variable ladolo equal -${radioAg}*3.0
+#variable ladohi equal ${radioAu}*3.0
+#region caja block ${ladolo} ${ladohi} ${ladolo} ${ladohi} ${ladolo} ${ladohi} units box
+
+#create_box 2 caja
+
+
+#region esfAg sphere -${radioAg} 0.0 0.0 ${radioAg2} units box
+#create_atoms 1 region esfAg
+
+#lattice fcc 4.080
+#region esfAu sphere ${radioAu} 0.0 0.0 ${radioAu2} units box
+#create_atoms 2 region esfAu
+
+read_restart EsfAg-4.restart
+#read_data EsfAg-2.data
+
+mass 2 196.97
+mass 1 107.87
+#mass 1 63.546
+
+#group gold type 3
+group gold type 2
+group silver type 1
+
+pair_style eam/alloy
+pair_coeff * * CuAgAu.lammps.eam Ag Au
+
+thermo 100
+thermo_style custom step temp pe ke etotal press vol
+thermo_modify norm yes
+
+compute 1 all pe/atom
+compute 2 all ke/atom
+compute 3 all stress/atom NULL pair
+
+dump OUT0 all custom 5000 dump_relax-EsfAg.* id type x y z vx vy vz fx fy fz c_1 c_2 c_3[1] c_3[2] c_3[3] c_3[4] c_3[5] c_3[6]
+dump_modify OUT0 first yes
+#Melting point of Silver = 1234.93 K
+#Melting point of Gold =   1337.33 K
+
+timestep 0.001
+reset_timestep 0
+#velocity all create 300.0 4928459 dist gaussian mom yes rot yes
+#fix mom all momentum 10 linear 1 1 1 angular
+#fix 1 all temp/rescale 5 300.0 300.0 1.0 1.0
+#fix 2 all nve
+#run 20000
+#unfix 1 
+#unfix 2
+
+#write_restart EsfAg-0.restart
+#write_data EsfAg-0.data
+
+fix 3 all nve
+fix 1 all temp/rescale 5 300.0 2600.0 1.0 1.0
+
+run 7000
+unfix 1
+unfix 3
+
+region stop block -400 400 -400 400 -400 400 side out units box
+label loop
+variable i loop 993
+group stop region stop
+velocity stop set 0 0 0
+fix stop stop setforce 0.0 0.0 0.0
+group md subtract all stop
+
+fix 2 md langevin 300.0 300.0 60 4928459
+fix 3 md nve
+
+run 1000
+unfix 2
+unfix 3
+unfix stop
+group stop delete
+group md delete
+next i
+jump in.esfAgAu loop
+
+
+
+
+
+write_restart EsfAg-5.restart
+write_data EsfAg-5.data
